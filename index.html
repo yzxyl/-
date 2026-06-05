@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Cyber Guild Dashboard</title>
+  <link rel="stylesheet" href="https://unpkg.com/layui@2.9.1/dist/css/layui.css">
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <style>
+    /* 全局酷炫背景 */
+    body {
+      background-color: #0f172a;
+      color: #e2e8f0;
+      padding: 20px;
+      font-family: 'Segoe UI', sans-serif;
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      background: #1e293b;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      border: 1px solid #334155;
+    }
+
+    h2 {
+      color: #38bdf8;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 20px;
+      text-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+    }
+
+    /* 表格样式优化 */
+    .layui-table {
+      background: #1e293b;
+      color: #cbd5e1;
+      border-color: #334155;
+    }
+
+    .layui-table th {
+      background-color: #0f172a !important;
+      color: #94a3b8 !important;
+      border-color: #334155 !important;
+    }
+
+    .layui-table td {
+      border-color: #334155 !important;
+    }
+
+    /* 输入框样式 */
+    .layui-input {
+      background: #0f172a;
+      border: 1px solid #475569;
+      color: #fff;
+      transition: 0.3s;
+    }
+
+    .layui-input:focus {
+      border-color: #38bdf8;
+      box-shadow: 0 0 8px rgba(56, 189, 248, 0.4);
+    }
+
+    /* 按钮特效 */
+    .btn-glow {
+      transition: 0.3s;
+    }
+
+    .btn-glow:hover {
+      box-shadow: 0 0 15px rgba(56, 189, 248, 0.6);
+      transform: translateY(-2px);
+    }
+
+    .fixed-col {
+      background-color: #1e293b !important;
+      color: #94a3b8;
+    }
+
+    .footer-total {
+      color: #f472b6 !important;
+      font-size: 1.4em;
+      text-align: right;
+      padding-right: 20px !important;
+    }
+
+    /* 悬停行高亮 */
+    tbody tr:hover {
+      background-color: #334155 !important;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="app" class="container">
+    <h2>// System: Guild Financial Matrix</h2>
+
+    <div class="table-tools">
+      <button @click="addRow" class="layui-btn layui-btn-primary btn-glow"
+        style="border: 1px solid #38bdf8; color: #38bdf8;">添加成员</button>
+      <button @click="addDynamicCol" class="layui-btn layui-btn-primary btn-glow"
+        style="border: 1px solid #fbbf24; color: #fbbf24;">添加新榜单</button>
+    </div>
+
+    <table class="layui-table">
+      <thead>
+        <tr>
+          <th>成员名称</th>
+          <th v-for="(n, index) in columnCount" :key="index">
+            榜单{{ index + 1 }}
+            <button v-if="index >= 2" @click="removeDynamicCol(index)" class="layui-btn layui-btn-xs"
+              style="background:transparent; color:#f87171;">[X]</button>
+          </th>
+          <th class="fixed-col">本档任务</th>
+          <th>收益总计</th>
+          <th>操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="(row, rIndex) in rows" :key="rIndex">
+          <td><input v-model="row.name" class="layui-input" placeholder="输入ID..."></td>
+          <td v-for="i in columnCount" :key="i">
+            <input type="number" v-model.number="row.amounts[i-1]" class="layui-input" placeholder="0">
+          </td>
+          <td class="fixed-col">
+            <input type="text" v-model="row.task" class="layui-input" placeholder="任务备注">
+          </td>
+          <td style="color: #38bdf8; font-weight: bold;">¥ {{ calculateRowTotal(row).toFixed(2) }}</td>
+          <td><button @click="removeRow(rIndex)" class="layui-btn layui-btn-xs layui-btn-danger">移除</button></td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr>
+          <td :colspan="columnCount + 3" class="footer-total">
+            TOTAL REVENUE: ¥ {{ grandTotal.toFixed(2) }}
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <script>
+    const { createApp, ref, computed } = Vue;
+    createApp({
+      setup() {
+        const columnCount = ref(2);
+        const rows = ref([{ name: '问茶', amounts: [0, 0], task: '' }, { name: '泠枫', amounts: [0, 0], task: '' }]);
+        const addRow = () => rows.value.push({ name: '', amounts: new Array(columnCount.value).fill(0), task: '' });
+        const removeRow = (index) => rows.value.splice(index, 1);
+        const addDynamicCol = () => { columnCount.value++; rows.value.forEach(row => row.amounts.push(0)); };
+        const removeDynamicCol = (index) => { columnCount.value--; rows.value.forEach(row => row.amounts.splice(index, 1)); };
+        const calculateRowTotal = (row) => row.amounts.reduce((sum, val) => sum + (Number(val) || 0), 0);
+        const grandTotal = computed(() => rows.value.reduce((sum, row) => sum + calculateRowTotal(row), 0));
+        return { columnCount, rows, addRow, removeRow, addDynamicCol, removeDynamicCol, calculateRowTotal, grandTotal };
+      }
+    }).mount('#app');
+  </script>
+</body>
+
+</html>
