@@ -47,35 +47,22 @@
       color: #fff;
     }
 
-    /* 强力高亮：红色背景 + 呼吸动画 */
-    .row-duplicate {
-      background-color: rgba(220, 38, 38, 0.3) !important;
-      animation: pulse 1.5s infinite;
+    .hint-box {
+      background: rgba(245, 158, 11, 0.1);
+      border-left: 4px solid #f59e0b;
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 4px;
+      color: #fbbf24;
     }
 
-    @keyframes pulse {
-      0% {
-        box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7);
-      }
-
-      70% {
-        box-shadow: 0 0 0 10px rgba(220, 38, 38, 0);
-      }
-
-      100% {
-        box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
-      }
+    .row-duplicate {
+      background-color: rgba(245, 158, 11, 0.2) !important;
+      transition: all 0.3s;
     }
 
     .row-duplicate input {
-      border-color: #ef4444 !important;
-    }
-
-    .footer-total {
-      color: #f472b6 !important;
-      font-size: 1.4em;
-      text-align: right;
-      padding-right: 20px !important;
+      border-color: #f59e0b !important;
     }
 
     .stats-area {
@@ -93,9 +80,20 @@
   <div id="app" class="container">
     <h2>// Guild Financial Matrix</h2>
 
-    <div v-if="duplicateNames.size > 0" class="layui-bg-red"
-      style="padding: 15px; margin-bottom: 20px; border-radius: 4px; font-weight: bold;">
-      ⚠️ 发现错误：以下成员名称重复出现，请立即修改：{{ Array.from(duplicateNames).join('、') }}
+    <div v-if="duplicateNames.size > 0" class="hint-box">
+      <strong>✨ 小提示：</strong> 发现有成员重复啦，请看表格中橙色的部分，核对后再生成流水哦～
+    </div>
+
+    <div
+      style="background: #0f172a; padding: 20px; margin-bottom: 20px; border-radius: 8px; border: 1px dashed #475569;">
+      <div class="layui-form-item" style="margin-bottom: 0;">
+        <label class="layui-form-label"
+          style="width: 100px; color: #94a3b8; padding: 9px 0; text-align: left;">快速导入：</label>
+        <div class="layui-input-inline" style="width: 50%;">
+          <input v-model="importText" class="layui-input" placeholder="例如：@良辰 @洛兮 或 @良辰@洛兮">
+        </div>
+        <button @click="batchImport" class="layui-btn layui-btn-primary" style="margin-left: 10px;">执行导入</button>
+      </div>
     </div>
 
     <div style="margin-bottom: 15px; display: flex; gap: 10px;">
@@ -115,7 +113,10 @@
       <thead>
         <tr>
           <th>成员名称</th>
-          <th v-for="(n, index) in columnCount" :key="index">榜单{{ index + 1 }}</th>
+          <th v-for="i in columnCount" :key="i">
+            榜单{{ i }} <button v-if="i > 2" @click="removeDynamicCol(i-1)" class="layui-btn layui-btn-xs"
+              style="background:transparent; color:#f87171;">[X]</button>
+          </th>
           <th>本档任务</th>
           <th>收益总计</th>
           <th>操作</th>
@@ -138,16 +139,17 @@
   </div>
 
   <script>
-    const { createApp, ref, computed } = Vue;
+    const { createApp, ref } = Vue;
     createApp({
       setup() {
         const columnCount = ref(2);
-        const rows = ref([{ name: '问茶', amounts: [0, 0], task: '' }, { name: '泠枫', amounts: [0, 0], task: '' }]);
+        // 修改：初始人员设为空数组
+        const rows = ref([]);
+        const importText = ref('');
         const config = ref({ date: '26.6.6', time: '14-16', host: '问茶', penalty: '羊朹 罚款已交' });
         const reportText = ref('');
         const duplicateNames = ref(new Set());
 
-        // 实时监控变化，自动检测重复
         const checkDuplicates = () => {
           const names = [];
           const dupes = new Set();
@@ -159,29 +161,40 @@
           duplicateNames.value = dupes;
         };
 
-        // 每当数据变化时检测重复
-        const addRow = () => { rows.value.push({ name: '', amounts: new Array(columnCount.value).fill(0), task: '' }); checkDuplicates(); };
+        const batchImport = () => {
+          const sanitizedText = importText.value.replace(/@/g, ' @');
+          const regex = /@(\S+)/g;
+          let match;
+          while ((match = regex.exec(sanitizedText)) !== null) {
+            let name = match[1].replace(/[、，。！\s]/g, '');
+            if (name && !rows.value.find(r => r.name === name)) {
+              rows.value.push({ name: name, amounts: new Array(columnCount.value).fill(0), task: '' });
+            }
+          }
+          importText.value = '';
+          checkDuplicates();
+        };
+
+        const addRow = () => { rows.value.push({ name: '', amounts: new Array(columnCount.value).fill(0), task: '' }); };
         const removeRow = (index) => { rows.value.splice(index, 1); checkDuplicates(); };
         const addDynamicCol = () => { columnCount.value++; rows.value.forEach(row => row.amounts.push(0)); };
+        const removeDynamicCol = (index) => { columnCount.value--; rows.value.forEach(row => row.amounts.splice(index, 1)); };
 
-        // 使用 watchEffect 或在点击生成前检测
         const calculateRowTotal = (row) => row.amounts.reduce((sum, val) => sum + (Number(val) || 0), 0);
 
         const generateReport = () => {
-          checkDuplicates(); // 执行一次强制检测
-          if (duplicateNames.value.size > 0) {
-            alert("⚠️ 无法生成！请先处理红色高亮显示的重复成员。");
-            return;
-          }
-
+          checkDuplicates();
+          if (duplicateNames.value.size > 0) return;
           let report = `✨流水详情✨\n日期：${config.value.date}\n时间：${config.value.time}\n主持：${config.value.host}\n`;
           report += `══════════════\n`;
-          rows.value.forEach(row => { report += `${row.name || '未命名'}${calculateRowTotal(row)}\n`; });
+          rows.value.forEach(row => {
+            report += `${row.name || '未命名'}  ${calculateRowTotal(row)}\n`;
+          });
           report += `══════════════\n任务详情：无\n══════════════\n违规罚款：${config.value.penalty}`;
           reportText.value = report;
         };
 
-        return { columnCount, rows, config, duplicateNames, addRow, removeRow, addDynamicCol, calculateRowTotal, reportText, generateReport };
+        return { columnCount, rows, importText, config, duplicateNames, batchImport, addRow, removeRow, addDynamicCol, removeDynamicCol, calculateRowTotal, reportText, generateReport };
       }
     }).mount('#app');
   </script>
