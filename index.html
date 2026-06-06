@@ -141,7 +141,7 @@
       <input v-model="config.date" class="layui-input" placeholder="日期" style="width: 120px;">
       <input v-model="config.time" class="layui-input" placeholder="时间" style="width: 120px;">
       <input v-model="config.host" class="layui-input" placeholder="主持" style="width: 120px;">
-      <input v-model="config.penalty" class="layui-input" placeholder="违规罚款" style="flex: 1;">
+      <input v-model="config.penalty" class="layui-input" placeholder="违规罚款" style="flex: 1 1 0%;">
     </div>
 
     <div class="table-tools">
@@ -189,10 +189,14 @@
     const { createApp, ref, computed } = Vue;
     createApp({
       setup() {
+        // 动态获取今日日期：2026.6.6
+        const now = new Date();
+        const today = `${now.getFullYear()}.${now.getMonth() + 1}.${now.getDate()}`;
+
         const columnCount = ref(2);
         const rows = ref([]);
         const importText = ref('');
-        const config = ref({ date: '2026.6.6', time: '14-16', host: '问茶', penalty: '这里输入罚款任务' });
+        const config = ref({ date: today, time: '14-16', host: '问茶', penalty: '这里输入罚款任务' });
         const reportText = ref('');
         const duplicateNames = ref(new Set());
 
