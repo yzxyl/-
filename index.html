@@ -27,7 +27,6 @@
     h2 {
       color: #38bdf8;
       text-transform: uppercase;
-      letter-spacing: 2px;
       margin-bottom: 20px;
     }
 
@@ -48,10 +47,28 @@
       color: #fff;
     }
 
-    .config-box {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 20px;
+    /* 强力高亮：红色背景 + 呼吸动画 */
+    .row-duplicate {
+      background-color: rgba(220, 38, 38, 0.3) !important;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% {
+        box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7);
+      }
+
+      70% {
+        box-shadow: 0 0 0 10px rgba(220, 38, 38, 0);
+      }
+
+      100% {
+        box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
+      }
+    }
+
+    .row-duplicate input {
+      border-color: #ef4444 !important;
     }
 
     .footer-total {
@@ -68,18 +85,22 @@
       border-left: 4px solid #38bdf8;
       white-space: pre-wrap;
       font-family: 'Microsoft YaHei', monospace;
-      line-height: 1.6;
     }
   </style>
 </head>
 
 <body>
   <div id="app" class="container">
-    <h2>// System: Guild Financial Matrix</h2>
+    <h2>// Guild Financial Matrix</h2>
 
-    <div class="config-box">
-      <input v-model="config.date" class="layui-input" placeholder="日期 (例: 26.6.6)" style="width: 130px;">
-      <input v-model="config.time" class="layui-input" placeholder="时间 (例: 14-16)" style="width: 130px;">
+    <div v-if="duplicateNames.size > 0" class="layui-bg-red"
+      style="padding: 15px; margin-bottom: 20px; border-radius: 4px; font-weight: bold;">
+      ⚠️ 发现错误：以下成员名称重复出现，请立即修改：{{ Array.from(duplicateNames).join('、') }}
+    </div>
+
+    <div style="margin-bottom: 15px; display: flex; gap: 10px;">
+      <input v-model="config.date" class="layui-input" placeholder="日期" style="width: 120px;">
+      <input v-model="config.time" class="layui-input" placeholder="时间" style="width: 120px;">
       <input v-model="config.host" class="layui-input" placeholder="主持" style="width: 120px;">
       <input v-model="config.penalty" class="layui-input" placeholder="违规罚款" style="flex: 1;">
     </div>
@@ -94,18 +115,15 @@
       <thead>
         <tr>
           <th>成员名称</th>
-          <th v-for="(n, index) in columnCount" :key="index">
-            榜单{{ index + 1 }}
-            <button v-if="index >= 2" @click="removeDynamicCol(index)" class="layui-btn layui-btn-xs"
-              style="background:transparent; color:#f87171;">[X]</button>
-          </th>
+          <th v-for="(n, index) in columnCount" :key="index">榜单{{ index + 1 }}</th>
           <th>本档任务</th>
           <th>收益总计</th>
           <th>操作</th>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="(row, rIndex) in rows" :key="rIndex">
+        <tr v-for="(row, rIndex) in rows" :key="rIndex"
+          :class="{'row-duplicate': duplicateNames.has(row.name.trim()) && row.name.trim() !== ''}">
           <td><input v-model="row.name" class="layui-input" placeholder="输入名称"></td>
           <td v-for="i in columnCount" :key="i"><input type="number" v-model.number="row.amounts[i-1]"
               class="layui-input"></td>
@@ -114,16 +132,9 @@
           <td><button @click="removeRow(rIndex)" class="layui-btn layui-btn-xs layui-btn-danger">移除</button></td>
         </tr>
       </tbody>
-      <tfoot>
-        <tr>
-          <td :colspan="columnCount + 3" class="footer-total">TOTAL REVENUE: ¥ {{ grandTotal.toFixed(0) }}</td>
-        </tr>
-      </tfoot>
     </table>
 
-    <div v-if="reportText" class="stats-area">
-      {{ reportText }}
-    </div>
+    <div v-if="reportText" class="stats-area">{{ reportText }}</div>
   </div>
 
   <script>
@@ -134,48 +145,43 @@
         const rows = ref([{ name: '问茶', amounts: [0, 0], task: '' }, { name: '泠枫', amounts: [0, 0], task: '' }]);
         const config = ref({ date: '26.6.6', time: '14-16', host: '问茶', penalty: '羊朹 罚款已交' });
         const reportText = ref('');
+        const duplicateNames = ref(new Set());
 
-        const addRow = () => rows.value.push({ name: '', amounts: new Array(columnCount.value).fill(0), task: '' });
-        const removeRow = (index) => rows.value.splice(index, 1);
+        // 实时监控变化，自动检测重复
+        const checkDuplicates = () => {
+          const names = [];
+          const dupes = new Set();
+          rows.value.forEach(row => {
+            const name = row.name.trim();
+            if (name && names.includes(name)) dupes.add(name);
+            if (name) names.push(name);
+          });
+          duplicateNames.value = dupes;
+        };
+
+        // 每当数据变化时检测重复
+        const addRow = () => { rows.value.push({ name: '', amounts: new Array(columnCount.value).fill(0), task: '' }); checkDuplicates(); };
+        const removeRow = (index) => { rows.value.splice(index, 1); checkDuplicates(); };
         const addDynamicCol = () => { columnCount.value++; rows.value.forEach(row => row.amounts.push(0)); };
-        const removeDynamicCol = (index) => { columnCount.value--; rows.value.forEach(row => row.amounts.splice(index, 1)); };
 
+        // 使用 watchEffect 或在点击生成前检测
         const calculateRowTotal = (row) => row.amounts.reduce((sum, val) => sum + (Number(val) || 0), 0);
-        const grandTotal = computed(() => rows.value.reduce((sum, row) => sum + calculateRowTotal(row), 0));
 
         const generateReport = () => {
-          const map = new Map();
-          let hasDuplicates = false;
+          checkDuplicates(); // 执行一次强制检测
+          if (duplicateNames.value.size > 0) {
+            alert("⚠️ 无法生成！请先处理红色高亮显示的重复成员。");
+            return;
+          }
 
-          rows.value.forEach(row => {
-            const name = (row.name || '').trim();
-            if (!name) return;
-            const total = calculateRowTotal(row);
-            if (map.has(name)) {
-              hasDuplicates = true;
-              map.set(name, map.get(name) + total);
-            } else {
-              map.set(name, total);
-            }
-          });
-
-          if (hasDuplicates) alert("⚠️ 检测到重复成员，已自动合并金额！");
-
-          let report = `✨流水详情✨\n`;
-          report += `日期：${config.value.date}\n`;
-          report += `时间：${config.value.time}\n`;
-          report += `主持：${config.value.host}\n`;
+          let report = `✨流水详情✨\n日期：${config.value.date}\n时间：${config.value.time}\n主持：${config.value.host}\n`;
           report += `══════════════\n`;
-          map.forEach((total, name) => { report += `${name}${total}\n`; });
-          report += `══════════════\n`;
-          report += `任务详情：无\n`;
-          report += `══════════════\n`;
-          report += `违规罚款：${config.value.penalty}`;
-
+          rows.value.forEach(row => { report += `${row.name || '未命名'}${calculateRowTotal(row)}\n`; });
+          report += `══════════════\n任务详情：无\n══════════════\n违规罚款：${config.value.penalty}`;
           reportText.value = report;
         };
 
-        return { columnCount, rows, config, addRow, removeRow, addDynamicCol, removeDynamicCol, calculateRowTotal, grandTotal, reportText, generateReport };
+        return { columnCount, rows, config, duplicateNames, addRow, removeRow, addDynamicCol, calculateRowTotal, reportText, generateReport };
       }
     }).mount('#app');
   </script>
