@@ -47,6 +47,49 @@
       color: #fff;
     }
 
+    .row-duplicate {
+      animation: blink-red 0.5s infinite, shake 0.2s infinite;
+      background-color: #ff0000 !important;
+      color: #fff !important;
+      font-weight: bold;
+    }
+
+    @keyframes blink-red {
+      0% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.3;
+      }
+
+      100% {
+        opacity: 1;
+      }
+    }
+
+    @keyframes shake {
+      0% {
+        transform: translateX(0);
+      }
+
+      25% {
+        transform: translateX(-5px);
+      }
+
+      50% {
+        transform: translateX(5px);
+      }
+
+      75% {
+        transform: translateX(-5px);
+      }
+
+      100% {
+        transform: translateX(0);
+      }
+    }
+
     .hint-box {
       background: rgba(245, 158, 11, 0.1);
       border-left: 4px solid #f59e0b;
@@ -56,13 +99,11 @@
       color: #fbbf24;
     }
 
-    .row-duplicate {
-      background-color: rgba(245, 158, 11, 0.2) !important;
-      transition: all 0.3s;
-    }
-
-    .row-duplicate input {
-      border-color: #f59e0b !important;
+    .footer-total {
+      color: #f472b6 !important;
+      font-size: 1.4em;
+      text-align: right;
+      padding-right: 20px !important;
     }
 
     .stats-area {
@@ -78,10 +119,10 @@
 
 <body>
   <div id="app" class="container">
-    <h2>// Guild Financial Matrix</h2>
+    <h2>我说 茶茶你真棒！！！！</h2>
 
     <div v-if="duplicateNames.size > 0" class="hint-box">
-      <strong>✨ 小提示：</strong> 发现有成员重复啦，请看表格中橙色的部分，核对后再生成流水哦～
+      <strong>⚠️ 视觉警报：</strong> 检测到重复成员！正在闪烁标注中，请手动修改！
     </div>
 
     <div
@@ -90,7 +131,7 @@
         <label class="layui-form-label"
           style="width: 100px; color: #94a3b8; padding: 9px 0; text-align: left;">快速导入：</label>
         <div class="layui-input-inline" style="width: 50%;">
-          <input v-model="importText" class="layui-input" placeholder="例如：@良辰 @洛兮 或 @良辰@洛兮">
+          <input v-model="importText" class="layui-input" placeholder="例如：@良辰 @洛兮">
         </div>
         <button @click="batchImport" class="layui-btn layui-btn-primary" style="margin-left: 10px;">执行导入</button>
       </div>
@@ -107,6 +148,7 @@
       <button @click="addRow" class="layui-btn layui-btn-primary">添加成员</button>
       <button @click="addDynamicCol" class="layui-btn layui-btn-primary" style="color: #fbbf24;">添加新榜单</button>
       <button @click="generateReport" class="layui-btn layui-btn-normal">生成流水详情</button>
+      <button @click="generateClockIn" class="layui-btn layui-btn-warm">结档打卡</button>
     </div>
 
     <table class="layui-table">
@@ -133,20 +175,24 @@
           <td><button @click="removeRow(rIndex)" class="layui-btn layui-btn-xs layui-btn-danger">移除</button></td>
         </tr>
       </tbody>
+      <tfoot>
+        <tr>
+          <td :colspan="columnCount + 3" class="footer-total">TOTAL REVENUE: ¥ {{ grandTotal.toFixed(0) }}</td>
+        </tr>
+      </tfoot>
     </table>
 
     <div v-if="reportText" class="stats-area">{{ reportText }}</div>
   </div>
 
   <script>
-    const { createApp, ref } = Vue;
+    const { createApp, ref, computed } = Vue;
     createApp({
       setup() {
         const columnCount = ref(2);
-        // 修改：初始人员设为空数组
         const rows = ref([]);
         const importText = ref('');
-        const config = ref({ date: '26.6.6', time: '14-16', host: '问茶', penalty: '羊朹 罚款已交' });
+        const config = ref({ date: '2026.6.6', time: '14-16', host: '问茶', penalty: '羊朹 罚款已交' });
         const reportText = ref('');
         const duplicateNames = ref(new Set());
 
@@ -181,6 +227,7 @@
         const removeDynamicCol = (index) => { columnCount.value--; rows.value.forEach(row => row.amounts.splice(index, 1)); };
 
         const calculateRowTotal = (row) => row.amounts.reduce((sum, val) => sum + (Number(val) || 0), 0);
+        const grandTotal = computed(() => rows.value.reduce((sum, row) => sum + calculateRowTotal(row), 0));
 
         const generateReport = () => {
           checkDuplicates();
@@ -194,7 +241,11 @@
           reportText.value = report;
         };
 
-        return { columnCount, rows, importText, config, duplicateNames, batchImport, addRow, removeRow, addDynamicCol, removeDynamicCol, calculateRowTotal, reportText, generateReport };
+        const generateClockIn = () => {
+          reportText.value = `✨结档打卡✨\n日期：${config.value.date}\n时间：${config.value.time}\n主持：${config.value.host}\n本档总流水：${Math.floor(grandTotal.value)}`;
+        };
+
+        return { columnCount, rows, importText, config, duplicateNames, batchImport, addRow, removeRow, addDynamicCol, removeDynamicCol, calculateRowTotal, grandTotal, reportText, generateReport, generateClockIn };
       }
     }).mount('#app');
   </script>
